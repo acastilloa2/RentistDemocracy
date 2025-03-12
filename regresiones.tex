@@ -1,0 +1,35 @@
+\begin{table}
+\centering
+\begin{talltblr}[         %% tabularray outer open
+entry=none,label=none,
+note{}={+ p \num{< 0.1}, * p \num{< 0.05}, ** p \num{< 0.01}, *** p \num{< 0.001}},
+]                     %% tabularray outer close
+{                     %% tabularray inner open
+colspec={Q[]Q[]Q[]Q[]Q[]},
+column{2,3,4,5}={}{halign=c,},
+column{1}={}{halign=l,},
+hline{10}={1,2,3,4,5}{solid, black, 0.05em},
+}                     %% tabularray inner close
+\toprule
+& WS con Interacción & MV con Interacción & WS sin Interacción & MV sin Interacción \\ \midrule %% TinyTableHeader
+log(y\_cap\_regalias\_cons + 1) & \num{0.000} & \num{0.020} & \num{0.000} & \num{-0.011} \\
+& (\num{0.000}) & (\num{0.055}) & (\num{0.000}) & (\num{0.038}) \\
+treatment & \num{-0.028}*** & \num{-2.113}** & \num{-0.025}*** & \num{-1.931}*** \\
+& (\num{0.006}) & (\num{0.793}) & (\num{0.003}) & (\num{0.450}) \\
+log(y\_cap\_regalias\_cons + 1) × treatment & \num{0.000} & \num{0.019} &  &  \\
+& (\num{0.001}) & (\num{0.082}) &  &  \\
+(Intercept) &  &  &  & \num{18.616}*** \\
+&  &  &  & (\num{0.298}) \\
+Num.Obs. & \num{6248} & \num{6248} & \num{6248} & \num{6248} \\
+R2 & \num{0.309} & \num{0.223} & \num{0.309} & \num{0.004} \\
+R2 Adj. & \num{0.161} & \num{0.056} & \num{0.161} & \num{0.003} \\
+R2 Within & \num{0.012} & \num{0.004} & \num{0.012} &  \\
+R2 Within Adj. & \num{0.012} & \num{0.004} & \num{0.012} &  \\
+AIC & \num{-8591.5} & \num{52602.8} & \num{-8593.0} & \num{51950.7} \\
+BIC & \num{-1150.5} & \num{60043.8} & \num{-1158.8} & \num{51970.9} \\
+RMSE & \num{0.10} & \num{13.65} & \num{0.10} & \num{15.46} \\
+Std.Errors & by: codmpio & by: codmpio & by: codmpio & IID \\
+FE: codmpio & X & X & X &  \\
+\bottomrule
+\end{talltblr}
+\end{table}

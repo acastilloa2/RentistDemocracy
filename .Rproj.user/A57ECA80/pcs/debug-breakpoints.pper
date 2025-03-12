@@ -1,0 +1,81 @@
+{
+    "debugBreakpointsState": {
+        "breakpoints": [
+            {
+                "id": 0,
+                "path": "~/GitHub/RentistDemocracy/Analysis_RentistDemocracy.R",
+                "line_number": 53,
+                "function_steps": "",
+                "function_name": "toplevel",
+                "state": 1,
+                "editor_state": 1,
+                "editor_line_number": 53,
+                "is_pending_debug_completion": false,
+                "needs_updated_steps": true,
+                "type": 1,
+                "is_package_breakpoint": false,
+                "package_name": ""
+            },
+            {
+                "id": 2,
+                "path": "~/GitHub/RentistDemocracy/DataCleaning02.R",
+                "line_number": 166,
+                "function_steps": "",
+                "function_name": "toplevel",
+                "state": 1,
+                "editor_state": 1,
+                "editor_line_number": 166,
+                "is_pending_debug_completion": false,
+                "needs_updated_steps": true,
+                "type": 1,
+                "is_package_breakpoint": false,
+                "package_name": ""
+            },
+            {
+                "id": 3,
+                "path": "~/GitHub/RentistDemocracy/DataCleaning02.R",
+                "line_number": 174,
+                "function_steps": "",
+                "function_name": "toplevel",
+                "state": 1,
+                "editor_state": 1,
+                "editor_line_number": 174,
+                "is_pending_debug_completion": false,
+                "needs_updated_steps": true,
+                "type": 1,
+                "is_package_breakpoint": false,
+                "package_name": ""
+            },
+            {
+                "id": 5,
+                "path": "~/GitHub/RentistDemocracy/DataCleaning02.R",
+                "line_number": 191,
+                "function_steps": "",
+                "function_name": "toplevel",
+                "state": 1,
+                "editor_state": 1,
+                "editor_line_number": 191,
+                "is_pending_debug_completion": false,
+                "needs_updated_steps": false,
+                "type": 1,
+                "is_package_breakpoint": false,
+                "package_name": ""
+            },
+            {
+                "id": 6,
+                "path": "~/GitHub/RentistDemocracy/DataCleaning02.R",
+                "line_number": 206,
+                "function_steps": "",
+                "function_name": "toplevel",
+                "state": 1,
+                "editor_state": 1,
+                "editor_line_number": 206,
+                "is_pending_debug_completion": false,
+                "needs_updated_steps": false,
+                "type": 1,
+                "is_package_breakpoint": false,
+                "package_name": ""
+            }
+        ]
+    }
+}
