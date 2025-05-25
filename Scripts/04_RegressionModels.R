@@ -1,0 +1,492 @@
+# ============================================================
+# Replication Script: Rentist Democracy
+# Author: Alejandro Castillo Ardila
+# Contact: a.castilloa2@uniandes.edu.co
+# Date: May 21, 2025
+# Description: This script replicates the analysis for the paper
+# "Rentist Democracy", including data preparation, descriptive
+# statistics, and regression models.
+# ============================================================
+
+# -------------------------------
+# 1. Load Required Packages 
+# -------------------------------
+
+pacman::p_load(
+  tidyverse, ggplot2, fixest, haven, modelsummary, pandoc, glue,
+  margins, ggeffects, viridis, scales, extrafont, gtsummary, knitr,
+  kableExtra, stargazer, broom, gtools, tinytable, stringr, gt,
+  tinytex
+)
+
+# -------------------------------
+# 2. Load and Prepare Data
+# -------------------------------
+
+# Load panel data
+panel1 <- read_dta("Data/panel1.dta")
+
+# Create log of royalties income
+panel1 <- panel1 %>%
+  mutate(log_royalties = log(y_cap_regalias_cons + 1)) %>%
+  mutate(log_royalties = ifelse(is.infinite(log_royalties), 0, log_royalties))
+
+# Invert competition scale
+panel1 <- panel1 %>% 
+  mutate(ws_1 = (1 - ws) * 100)
+
+# Filter for years after 2005 and select relevant variables
+panel1_2 <- panel1 %>% 
+  filter(ano_cede > 2005) %>% 
+  select(codmpio, coddpto, ws_1, mv, log_royalties, ano_ele, treatment,
+         binary_crudo, binary_gas, pobl_tot, iica,
+         df_desemp_fisc, treatment_2, y_cap_regalias) %>% 
+  mutate(
+    ano_ele = as.factor(ano_ele),
+    coddpto = as.factor(coddpto),
+    codmpio = as.factor(codmpio),
+    treatment = as.factor(treatment)
+  )
+
+# Recode treatment variables
+panel1_2 <- panel1_2 %>%
+  mutate(
+    treatment = case_when(treatment == 2 ~ 1, treatment == 1 ~ 0),
+    treatment_2 = case_when(
+      treatment_2 == 2 ~ 1,
+      treatment_2 == 6 ~ 2,
+      treatment_2 == 0 ~ 0
+    )
+  )
+
+# Create binary variable for oil/gas presence
+panel1_2 <- panel1_2 %>%
+  mutate(binary_og = case_when(
+    binary_crudo == 1 | binary_gas == 1 ~ 1,
+    TRUE ~ 0
+  ))
+
+# Create per capita royalties variable
+panel1_2 <- panel1_2 %>%
+  mutate(royalties_pc = (y_cap_regalias + 1) / pobl_tot)
+
+# -------------------------------
+# 3. Descriptive Statistics 
+# -------------------------------
+
+Descriptive_df <- datasummary(
+  (ws_1 + log_royalties + treatment + binary_og + pobl_tot + iica + df_desemp_fisc) ~
+    N + Min + Mean + Max + SD,
+  output = "gt",
+  data = panel1_2
+)
+
+Descriptivedf_latex <- Descriptive_df |>
+  tab_header(title = "Descriptive Statistics") |>
+  as_latex()
+
+cat(Descriptivedf_latex, file = "Outputs/Tables/descriptive.tex")
+
+# -------------------------------
+# 4. Regression Models 
+# -------------------------------
+
+# --- Basic Models ---
+output1 <- feols(ws_1 ~ log_royalties, panel1_2)
+output1_1 <- feols(ws_1 ~ i(treatment), panel1_2)
+output1_2 <- feols(ws_1 ~ log_royalties + i(treatment), panel1_2)
+output2 <- feols(ws_1 ~ log_royalties * i(treatment, ref = 0),data = panel1_2)
+# --- Models with Controls ---
+output3 <- feols(ws_1 ~ log_royalties + i(treatment) + pobl_tot + iica + df_desemp_fisc, panel1_2)
+output4 <- feols(ws_1 ~ log_royalties + pobl_tot + iica + df_desemp_fisc | ano_ele, panel1_2)
+output5 <- feols(ws_1 ~ log_royalties + i(treatment) + pobl_tot + iica + df_desemp_fisc | coddpto, panel1_2)
+output6 <- feols(ws_1 ~ log_royalties + i(treatment) + pobl_tot + iica + df_desemp_fisc | codmpio, panel1_2)
+
+# --- Export Regression Tables ---
+note <- "Standard errors in parentheses. ***p<0.01, **p<0.05, *p<0.1"
+
+models_1_2 <- list("(1)" = output1, "(2)" = output1_1, "(3)" = output1_2, "(4)" = output2)
+models_3_6 <- list("(1)" = output3, "(2)" = output4, "(3)" = output5, "(4)" = output6)
+
+labels <- c(
+  "log_royalties" = "Log(Royalties)",
+  "treatment" = "Reform",
+  "treatment::1" = "Reform::1",
+  "log_royalties:treatment" = "Log(Royalties) x Reform",
+  "log_royalties:treatment::1" = "Log(Royalties) x Reform::1",
+  "pobl_tot" = "Population",
+  "iica" = "Armed Conflict",
+  "df_desemp_fisc" = "Fiscal Performance"
+)
+
+# Table 1
+table_1 <- modelsummary(
+  models_1_2, output = "gt", stars = c("*" = .1, "**" = .05, "***" = .01),
+  coef_map = labels, gof_omit = "IC|Log|Adj|Std|F|AIC|BIC|RMSE", fmt = 3
+) |>
+  tab_header(title = "Effect of Distribution Institutions on Political Competition") 
+
+table_1_latex <- table_1 |>
+  as_latex() #Export table in LaTex
+
+cat(table_1_latex, file = "Outputs/Tables/tabla_modelos_1_2_FINAL.tex")
+
+gtsave(table_1, "Outputs/Tables/reg1.htm") #Export table in HTML
+
+# Table 2
+table_2 <- modelsummary(
+  models_3_6, output = "gt", stars = c("*" = .1, "**" = .05, "***" = .01),
+  coef_map = labels, gof_omit = "IC|Log|Adj|Std|F|AIC|BIC|RMSE", fmt = 3
+) |> tab_header(title = "Effect of Distribution Institutions on Political Competition (II)")
+
+table_2_latex <- table_2 |>
+  as_latex() #Export table in LaTex
+  
+cat(table_2_latex, file = "Outputs/Tables/tabla_modelos_3_6_FINAL.tex")
+
+gtsave(table_2, "Outputs/Tables/reg2.htm") #Export table in HTML
+
+# -------------------------------
+# 5. Additional Models: Oil/Gas 
+# -------------------------------
+
+# Basic models
+output2_0 <- feols(ws_1 ~ binary_og, panel1_2)
+output2_1 <- feols(ws_1 ~ binary_og + log_royalties, panel1_2)
+output2_2_1 <- feols(ws_1 ~ binary_og + log_royalties + i(treatment), panel1_2)
+output2_2 <- feols(ws_1 ~ binary_og * log_royalties + i(treatment), panel1_2)
+output2_3 <- feols(ws_1 ~ binary_og + log_royalties + binary_og * i(treatment, ref = 0), panel1_2)
+
+# With controls
+output2_6 <- feols(ws_1 ~ binary_og + log_royalties + i(treatment) + pobl_tot + iica + df_desemp_fisc, panel1_2)
+output2_61 <- feols(ws_1 ~ binary_og * log_royalties + i(treatment) + pobl_tot + iica + df_desemp_fisc, panel1_2)
+output2_8_2 <- feols(ws_1 ~ binary_og + log_royalties + binary_og * i(treatment, ref = 0) + pobl_tot + iica + df_desemp_fisc, panel1_2)
+
+# With fixed effects
+output2_9 <- feols(ws_1 ~ binary_og + log_royalties + binary_og * i(treatment, ref = 0) + pobl_tot + iica + df_desemp_fisc | ano_ele, panel1_2)
+output2_10 <- feols(ws_1 ~ binary_og + log_royalties + binary_og * i(treatment, ref = 0) + pobl_tot + iica + df_desemp_fisc | coddpto, panel1_2)
+output2_11 <- feols(ws_1 ~ binary_og + log_royalties + binary_og * i(treatment, ref = 0) + pobl_tot + iica + df_desemp_fisc | codmpio, panel1_2)
+output2_12 <- feols(ws_1 ~ binary_og + log_royalties + binary_og * i(treatment, ref = 0) + pobl_tot + iica + df_desemp_fisc | codmpio + ano_ele, panel1_2)
+# -------------------------------
+# 6. Exporting Additional Tables 
+# -------------------------------
+
+# Coefficient labels
+labels_2 <- c(
+  "log_royalties" = "Log(Royalties)",
+  "binary_og" = "Producer",
+  "binary_og::1" = "Producer::1",
+  "treatment::1" = "Reform::1",
+  "pobl_tot" = "Population",
+  "iica" = "Conflict",
+  "df_desemp_fisc" = "Fiscal Performance",
+  "binary_og:log_royalties" = "Producer × Log(Royalties)",
+  "binary_og:treatment::1" = "Producer × Reform::1"
+)
+
+# Table: Interaction with producer status (I)
+models2_1_2 <- list(
+  "(1)" = output2_0,
+  "(2)" = output2_1,
+  "(3)" = output2_2_1,
+  "(4)" = output2_2,
+  "(5)" = output2_3
+)
+
+table2_1 <- modelsummary(
+  models2_1_2,
+  output = "gt",
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  coef_map = labels_2,
+  gof_omit = "IC|Log|Adj|Std|F|AIC|BIC|RMSE",
+  fmt = 3
+) |> tab_header(title = "Interaction with Producer Status")
+
+table2_1_latex <- table2_1 |>
+  as_latex() # Export table in LaTex
+
+writeLines(table2_1_latex, "Outputs/Tables/reg3.tex")
+
+gtsave(table2_1, "Outputs/Tables/reg3.htm") # Export table in HTML
+
+# Table: Interaction with producer status (II) - with controls
+models_controls_22 <- list(
+  "(1)" = output2_6,
+  "(2)" = output2_61,
+  "(3)" = output2_8_2
+)
+
+table2_2 <- modelsummary(
+  models_controls_22,
+  output = "gt",
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  coef_map = labels_2,
+  gof_omit = "IC|Log|Adj|Std|F|AIC|BIC|RMSE",
+  fmt = 3
+) |> tab_header(title = "Interaction with Producer Status (II)")
+
+table2_2_latex <- table2_2 |>
+  as_latex() # Export table in LaTex
+
+writeLines(table2_2_latex, "Outputs/Tables/reg4.tex")
+
+gtsave(table2_2, "Outputs/Tables/reg4.htm") # Export table in HTML
+
+# Table: Interaction with producer status (III) - with fixed effects
+models_fixed <- list(
+  "(1)" = output2_9,
+  "(2)" = output2_10,
+  "(3)" = output2_11,
+  "(4)" = output2_12
+)
+
+table2_3 <- modelsummary(
+  models_fixed,
+  output = "gt",
+  stars = c("*" = .1, "**" = .05, "***" = .01),
+  coef_map = labels_2,
+  gof_omit = "IC|Log|Adj|Std|F|AIC|BIC|RMSE",
+  fmt = 3
+) |> tab_header(title = "Interaction with Producer Status (III)")
+
+table2_3_latex <- table2_3 |>
+  as_latex() # Export table in LaTex
+
+writeLines(table2_3_latex, "Outputs/Tables/reg5.tex")
+
+gtsave(table2_3, "Outputs/Tables/reg5.htm") # Export table in HTML
+
+# -------------------------------
+# 7. Marginal Effects Plot 
+# -------------------------------
+
+# Re-run model without factor notation
+output2_3_g <- feols(ws_1 ~ binary_og + log_royalties + binary_og * treatment, data = panel1_2)
+summary(output2_3_g)
+
+# Get marginal predictions
+margins <- ggpredict(output2_3_g, terms = c("treatment", "binary_og"))
+
+# Relabel groups
+margins$group <- factor(margins$group,
+                        levels = c(0, 1),
+                        labels = c("Before SGR (0)", "After SGR (1)"))
+margins$x <- factor(margins$x, levels = c(0, 1))
+
+# Plot
+ggplot(margins, aes(x = x, y = predicted, color = group)) +
+  geom_point(size = 3) +
+  geom_line(aes(group = group), linewidth = 1) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.08) +
+  labs(
+    x = "Discretion",
+    y = "Political Competition (Predicted)",
+    color = "Producer Status"
+  ) +
+  scale_color_manual(
+    values = c("Before SGR (0)" = "#003459", "After SGR (1)" = "#00a8e8"),
+    labels = c("Non-producer", "Producer")
+  ) +
+  scale_x_discrete(labels = c("Before SGR", "After SGR")) +
+  scale_y_continuous(limits = c(40, 60)) + 
+  theme_bw() +
+  theme(
+    axis.title = element_text(size = 10),
+    legend.title = element_text(size = 10),
+    legend.position = "bottom",
+    legend.text = element_text(size = 10)
+  )
+
+# Save plot
+ggsave(
+  filename = "Outputs/Plots/margins_plot_ENG.png",
+  width = 8,
+  height = 5,
+  dpi = 300
+)
+
+# Plot in Spanish
+
+ggplot(margins, aes(x = x, y = predicted, color = group)) +
+  geom_point(size = 3) +
+  geom_line(aes(group = group), linewidth = 1) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.08) +
+  labs(
+    x = "Discrecionalidad",
+    y = "Competencia Política (Predicción)",
+    color = "Estatus"
+  ) +
+  scale_color_manual(
+    values = c("Before SGR (0)" = "#003459", "After SGR (1)" = "#00a8e8"),
+    labels = c("No productor", "Productor")
+  ) +
+  scale_x_discrete(labels = c("Antes SGR", "Después SGR")) +
+  scale_y_continuous(limits = c(40, 60)) + 
+  theme_bw() +
+  theme(
+    axis.title = element_text(size = 10),
+    legend.title = element_text(size = 10),
+    legend.position = "bottom",
+    legend.text = element_text(size = 10)
+  )
+
+# Save plot in Spanish
+ggsave(
+  filename = "Outputs/Plots/margins_plot.png",
+  width = 8,
+  height = 5,
+  dpi = 300
+)
+
+# Marginal effects year by year
+output2_3_y <- feols(ws_1 ~ binary_og + log_royalties + binary_og * ano_ele, data = panel1_2)
+
+margins_y <- ggpredict(output2_3_y, terms = c("ano_ele", "binary_og"))
+
+# Relabel groups
+margins_y$group <- factor(margins_y$group,
+                        levels = c(0, 1),
+                        labels = c("Non-producer", "Producer"))
+margins_y$x <- factor(margins_y$x, levels = c(2007, 2011, 2015, 2019))
+
+ggplot(margins_y, aes(x = x, y = predicted, color = group)) +
+  geom_point(size = 3) +
+  geom_line(aes(group = group), linewidth = 1) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.08) +
+  
+  ## --- línea vertical punteada y etiqueta ---
+  geom_vline(xintercept = 2.333333, linetype = "dashed", colour = "grey40") +   # 3 = posición de 2012 en el eje discreto
+  annotate("text", x = 2.55, y = 58, label = "SGR", vjust = -0.5, size = 3) +
+  
+  labs(
+    x = "Discretion",
+    y = "Political Competition (Predicted)",
+    color = "Producer Status"
+  ) +
+  scale_color_manual(
+    values = c("#003459", "#00a8e8"),
+    labels = c("Non-producer", "Producer")
+  ) +
+  scale_x_discrete(labels = c("2007", "2011", "2015", "2019")) +
+  scale_y_continuous(limits = c(40, 60)) + 
+  theme_ggeffects() +
+  theme(
+    axis.title = element_text(size = 10),
+    legend.title = element_text(size = 10),
+    legend.position = "bottom",
+    legend.text = element_text(size = 10)
+  )
+
+# Save plot
+ggsave(
+  filename = "Outputs/Plots/margins_year_plot.png",
+  width = 8,
+  height = 5,
+  dpi = 300
+)
+
+# Plot in Spanish
+ggplot(margins_y, aes(x = x, y = predicted, color = group)) +
+  geom_point(size = 3) +
+  geom_line(aes(group = group), linewidth = 1) +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.08) +
+  
+  ## --- línea vertical punteada y etiqueta ---
+  geom_vline(xintercept = 2.333333, linetype = "dashed", colour = "grey40") +   # 3 = posición de 2012 en el eje discreto
+  annotate("text", x = 2.55, y = 58, label = "SGR", vjust = -0.5, size = 3) +
+  
+  labs(
+    x = "Discrecionalidad",
+    y = "Competencia Política (Predicción)",
+    color = "Estatus"
+  ) +
+  scale_color_manual(
+    values = c("#003459", "#00a8e8"),
+    labels = c("No productor", "Productor")
+  ) +
+  scale_x_discrete(labels = c("2007", "2011", "2015", "2019")) +
+  scale_y_continuous(limits = c(40, 60)) + 
+  theme_ggeffects() +
+  theme(
+    axis.title = element_text(size = 10),
+    legend.title = element_text(size = 10),
+    legend.position = "bottom",
+    legend.text = element_text(size = 10)
+  )
+
+# Save plot in Spanish
+
+ggsave(
+  filename = "Outputs/Plots/margins_year_plot_ES.jpg",
+  width = 8,
+  height = 5,
+  dpi = 300
+)
+
+# -------------------------------
+# 8. Case Study: Yopal
+# -------------------------------
+
+# Filter data for Yopal (codmpio = 85001)
+yopal_df <- panel1 %>%
+  filter(codmpio == 85001) %>% 
+  select(ano_ele, ws_1, ws, mv, codmpio)
+
+# Line plot of political competition over time
+ggplot(yopal_df, aes(x = ano_ele, y = ws_1)) +
+  geom_line(color = "#00a8e8", linewidth = 1) +
+  geom_point(color = "#00a8e8", size = 2) +
+  geom_vline(xintercept = 2012, linetype = "dashed", colour = "grey30") +   # 3 = posición de 2012 en el eje discreto
+  annotate("text", x = 2012.5, y = 65, label = "SGR", vjust = -0.5, size = 3) +
+  labs(
+    x = "Year",
+    y = "Political Competition",
+    legend = "Indicator"
+  ) +
+  scale_x_continuous(breaks = seq(2000, 2020, by = 2)) +
+  theme_ggeffects() +
+  theme(
+    axis.title = element_text(size = 12),
+    legend.title = element_text(size = 12),
+    legend.position = "bottom",
+    legend.text = element_text(size = 12)
+  )
+
+# Save plot
+ggsave(
+  filename = "Outputs/Plots/yopal_plot.png",
+  width = 8,
+  height = 4.5,
+  dpi = 300)
+  
+  
+# Plot in Spanish
+
+ggplot(yopal_df, aes(x = ano_ele, y = ws_1)) +
+  geom_line(color = "#00a8e8", linewidth = 1) +
+  geom_point(color = "#00a8e8", size = 2) +
+  geom_vline(xintercept = 2012, linetype = "dashed", colour = "grey30") +   # 3 = posición de 2012 en el eje discreto
+  annotate("text", x = 2012.5, y = 65, label = "SGR", vjust = -0.5, size = 3) +
+  labs(
+    x = "Año",
+    y = "Competencia Política",
+    legend = "Indicador"
+  ) +
+  scale_x_continuous(breaks = seq(2000, 2020, by = 2)) +
+  theme_ggeffects() +
+  theme(
+    axis.title = element_text(size = 12),
+    legend.title = element_text(size = 12),
+    legend.position = "bottom",
+    legend.text = element_text(size = 12)
+  )
+
+# Save plot in Spanish
+
+ggsave(
+  filename = "Outputs/Plots/yopal_plot_ES.jpg",
+  width = 8,
+  height = 4,
+  dpi = 300
+)
+
